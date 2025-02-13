@@ -1,7 +1,7 @@
 import * as tf from '@tensorflow/tfjs-node';
 import fs from 'fs';
 import path from 'path';
-import { TestResult, DefectPattern } from '../../types/interfaces';
+import { TestResult, DefectPattern, ElementData, TestAction } from '../../types/interfaces';
 
 class LearningEngine {
   private testHistory: TestResult[] = [];
@@ -28,6 +28,20 @@ class LearningEngine {
     // Save updated models and patterns
     this.saveModel();
     this.saveDefectPatterns();
+  }
+
+  // Get optimal action flow for an element
+  public getOptimalActionFlow(element: ElementData): TestAction[] {
+    if (!this.model) {
+      return this.getDefaultActionFlow(element);
+    }
+
+    // Predict the best action sequence using the trained model
+    const inputTensor = this.prepareInputTensor(element);
+    const prediction = this.model.predict(inputTensor) as tf.Tensor;
+    const actions = this.decodePrediction(prediction);
+
+    return actions;
   }
 
   // Get insights based on test results and defect patterns
@@ -67,6 +81,33 @@ class LearningEngine {
     }
 
     return insights;
+  }
+
+  // Default action flow if no model is available
+  private getDefaultActionFlow(element: ElementData): TestAction[] {
+    return [
+      { type: 'click', element: element.selector },
+      { type: 'validate', element: element.selector },
+    ];
+  }
+
+  // Prepare input tensor for prediction
+  private prepareInputTensor(element: ElementData): tf.Tensor {
+    const inputFeatures = this.encodeTestResult({
+      elementSelector: element.selector,
+      action: 'click', // Default action
+      success: true, // Placeholder
+      timestamp: Date.now(),
+    });
+    return tf.tensor2d([inputFeatures]);
+  }
+
+  // Decode model prediction into actions
+  private decodePrediction(prediction: tf.Tensor): TestAction[] {
+    const [successProb, failureProb] = prediction.dataSync();
+    return successProb > failureProb
+      ? [{ type: 'click', element: 'default' }]
+      : [{ type: 'validate', element: 'default' }];
   }
 
   // Update defect patterns based on failure analysis
