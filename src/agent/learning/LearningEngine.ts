@@ -1,16 +1,17 @@
-import * as tf from '@tensorflow/tfjs-node'; // TensorFlow.js for Node.js
+import * as tf from '@tensorflow/tfjs-node';
 import fs from 'fs';
 import path from 'path';
-import { TestResult, DefectPattern, ElementData, TestAction } from '../../types/interfaces';
+import { TestResult, DefectPattern } from '../../types/interfaces';
 
 class LearningEngine {
   private testHistory: TestResult[] = [];
   private defectPatterns: DefectPattern[] = [];
   private model: tf.Sequential | null = null;
-  private readonly modelPath = path.join(__dirname, 'ai-models', 'test-optimization-model.json');
+  private readonly modelPath = path.join(__dirname, '..', 'ai-models', 'test-optimization-model.json');
 
   constructor() {
     this.loadModel();
+    this.loadDefectPatterns();
   }
 
   // Analyze test results and update defect patterns
@@ -29,18 +30,43 @@ class LearningEngine {
     this.saveDefectPatterns();
   }
 
-  // Get optimal action flow for an element
-  public getOptimalActionFlow(element: ElementData): TestAction[] {
-    if (!this.model) {
-      return this.getDefaultActionFlow(element);
+  // Get insights based on test results and defect patterns
+  public getInsights(): { element: string; successRate: number; suggestions: string[] }[] {
+    const insights: { element: string; successRate: number; suggestions: string[] }[] = [];
+
+    // Calculate success rate for each element
+    const elementStats = new Map<string, { success: number; total: number }>();
+    for (const result of this.testHistory) {
+      if (!elementStats.has(result.elementSelector)) {
+        elementStats.set(result.elementSelector, { success: 0, total: 0 });
+      }
+      const stats = elementStats.get(result.elementSelector)!;
+      stats.total++;
+      if (result.success) {
+        stats.success++;
+      }
     }
 
-    // Predict the best action sequence using the trained model
-    const inputTensor = this.prepareInputTensor(element);
-    const prediction = this.model.predict(inputTensor) as tf.Tensor;
-    const actions = this.decodePrediction(prediction);
+    // Generate insights for each element
+    for (const [element, stats] of elementStats.entries()) {
+      const successRate = (stats.success / stats.total) * 100;
+      const suggestions: string[] = [];
 
-    return actions;
+      // Add suggestions based on defect patterns
+      const defectPattern = this.defectPatterns.find(p => p.elementSelector === element);
+      if (defectPattern) {
+        if (defectPattern.frequency > 5) {
+          suggestions.push('Update selector or fix element interaction.');
+        }
+        if (defectPattern.commonErrors.includes('Element not found')) {
+          suggestions.push('Add retry logic or improve selector.');
+        }
+      }
+
+      insights.push({ element, successRate, suggestions });
+    }
+
+    return insights;
   }
 
   // Update defect patterns based on failure analysis
@@ -138,43 +164,16 @@ class LearningEngine {
 
   // Save defect patterns to a local file
   private saveDefectPatterns() {
-    const defectPatternsPath = path.join(__dirname, 'ai-models', 'defect-patterns.json');
+    const defectPatternsPath = path.join(__dirname, '..', 'ai-models', 'defect-patterns.json');
     fs.writeFileSync(defectPatternsPath, JSON.stringify(this.defectPatterns, null, 2));
   }
 
   // Load defect patterns from a local file
   private loadDefectPatterns() {
-    const defectPatternsPath = path.join(__dirname, 'ai-models', 'defect-patterns.json');
+    const defectPatternsPath = path.join(__dirname, '..', 'ai-models', 'defect-patterns.json');
     if (fs.existsSync(defectPatternsPath)) {
       this.defectPatterns = JSON.parse(fs.readFileSync(defectPatternsPath, 'utf-8'));
     }
-  }
-
-  // Default action flow if no model is available
-  private getDefaultActionFlow(element: ElementData): TestAction[] {
-    return [
-      { type: 'click', element: element.selector },
-      { type: 'validate', element: element.selector },
-    ];
-  }
-
-  // Prepare input tensor for prediction
-  private prepareInputTensor(element: ElementData): tf.Tensor {
-    const inputFeatures = this.encodeTestResult({
-      elementSelector: element.selector,
-      action: 'click', // Default action
-      success: true, // Placeholder
-      timestamp: Date.now(),
-    });
-    return tf.tensor2d([inputFeatures]);
-  }
-
-  // Decode model prediction into actions
-  private decodePrediction(prediction: tf.Tensor): TestAction[] {
-    const [successProb, failureProb] = prediction.dataSync();
-    return successProb > failureProb
-      ? [{ type: 'click', element: 'default' }]
-      : [{ type: 'validate', element: 'default' }];
   }
 }
 

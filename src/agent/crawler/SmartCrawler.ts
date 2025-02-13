@@ -5,7 +5,7 @@ class SmartCrawler {
   private browser: Browser | null = null;
   private page: Page | null = null;
   private visitedUrls = new Set<string>();
-  private elementInventory = new Map<string, ElementData[]>();
+  public elementInventory = new Map<string, ElementData[]>();
 
   async initialize() {
     this.browser = await chromium.launch();

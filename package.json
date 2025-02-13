@@ -4,9 +4,8 @@
   "description": "ai-agent",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node src/index.ts",
-    "test": "playwright test",
-    "train": "ts-node src/agent/learning/trainModel.ts"
+    "start": "./src/start.ts",
+    "run-tests": "./src/run-tests.ts"
   },
   "repository": {
     "type": "git",
