@@ -1,21 +1,7 @@
 import * as tf from '@tensorflow/tfjs-node'; // TensorFlow.js for Node.js
 import fs from 'fs';
 import path from 'path';
-
-interface TestResult {
-  success: boolean;
-  elementSelector: string;
-  action: string;
-  errorMessage?: string;
-  screenshot?: string; // Base64 encoded screenshot
-  timestamp: number;
-}
-
-interface DefectPattern {
-  elementSelector: string;
-  commonErrors: string[];
-  frequency: number;
-}
+import { TestResult, DefectPattern, ElementData, TestAction } from '../../types/interfaces';
 
 class LearningEngine {
   private testHistory: TestResult[] = [];
@@ -191,3 +177,5 @@ class LearningEngine {
       : [{ type: 'validate', element: 'default' }];
   }
 }
+
+export default LearningEngine;

@@ -1,8 +1,9 @@
 import { chromium, Browser, Page, ElementHandle } from 'playwright';
+import { ElementData } from '../../types/interfaces';
 
 class SmartCrawler {
-  private browser: Browser;
-  private page: Page;
+  private browser: Browser | null = null;
+  private page: Page | null = null;
   private visitedUrls = new Set<string>();
   private elementInventory = new Map<string, ElementData[]>();
 
@@ -12,8 +13,9 @@ class SmartCrawler {
   }
 
   async crawl(startUrl: string, depth = 3) {
+    if (!this.page) throw new Error('Page not initialized. Call initialize() first.');
     if (depth === 0 || this.visitedUrls.has(startUrl)) return;
-    
+
     this.visitedUrls.add(startUrl);
     await this.page.goto(startUrl);
 
@@ -21,12 +23,13 @@ class SmartCrawler {
     const buttons = await this.findElements('button');
     const inputs = await this.findElements('input,textarea');
     const links = await this.findElements('a');
-    
-    this.elementInventory.set(startUrl, [
-      ...buttons.map(e => this.createElementData(e, 'button')),
-      ...inputs.map(e => this.createElementData(e, 'input')),
-      ...links.map(e => this.createElementData(e, 'link'))
-    ]);
+
+    // Resolve all promises for element data
+    const buttonData = await Promise.all(buttons.map(e => this.createElementData(e, 'button')));
+    const inputData = await Promise.all(inputs.map(e => this.createElementData(e, 'input')));
+    const linkData = await Promise.all(links.map(e => this.createElementData(e, 'link')));
+
+    this.elementInventory.set(startUrl, [...buttonData, ...inputData, ...linkData]);
 
     // Recursive crawling
     const pageLinks = await this.page.$$eval('a', as => as.map(a => a.href));
@@ -36,23 +39,28 @@ class SmartCrawler {
   }
 
   private async findElements(selector: string) {
+    if (!this.page) throw new Error('Page not initialized. Call initialize() first.');
     return this.page.$$(selector);
   }
 
   private async createElementData(element: ElementHandle, type: string): Promise<ElementData> {
-    const attributes = await element.evaluate(el => 
-      Object.fromEntries([...el.attributes].map(attr => [attr.name, attr.value]))
-    );
-    
+    const attributes = await element.evaluate(el => {
+      const elAttributes: Record<string, string> = {};
+      for (const attr of (el as HTMLElement).attributes) {
+        elAttributes[attr.name] = attr.value;
+      }
+      return elAttributes;
+    });
+
     return {
       selector: this.generateSmartSelector(element, attributes),
       type,
       attributes,
-      interactions: this.detectPossibleInteractions(type)
+      interactions: this.detectPossibleInteractions(type),
     };
   }
 
-  private generateSmartSelector(element: ElementHandle, attributes: any): string {
+  private generateSmartSelector(element: ElementHandle, attributes: Record<string, string>): string {
     // AI-powered selector prioritization
     const priorityAttributes = ['data-testid', 'id', 'aria-label', 'name'];
     for (const attr of priorityAttributes) {
@@ -61,12 +69,26 @@ class SmartCrawler {
     return this.generateXPath(element);
   }
 
+  private generateXPath(element: ElementHandle): string {
+    // Generate a basic XPath selector (can be improved)
+    return `//${element}`;
+  }
+
   private detectPossibleInteractions(type: string): string[] {
-    const interactionMap = {
+    const interactionMap: Record<string, string[]> = {
       button: ['click', 'hover', 'doubleClick'],
       input: ['type', 'fill', 'clear'],
-      link: ['click', 'verifyNavigation']
+      link: ['click', 'verifyNavigation'],
     };
+
     return interactionMap[type] || [];
   }
+
+  async close() {
+    if (this.browser) {
+      await this.browser.close();
+    }
+  }
 }
+
+export default SmartCrawler;
