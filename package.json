@@ -1,0 +1,37 @@
+{
+  "name": "ta-agent",
+  "version": "1.0.0",
+  "description": "ai-agent",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "test": "playwright test",
+    "train": "ts-node src/agent/learning/trainModel.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tivix/ta-agent.git"
+  },
+  "keywords": [
+    "ai",
+    "test",
+    "automation"
+  ],
+  "author": "konrad.jazownik@kellton.com",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Tivix/ta-agent/issues"
+  },
+  "homepage": "https://github.com/Tivix/ta-agent#readme",
+  "dependencies": {
+    "@tensorflow/tfjs-node": "^4.22.0",
+    "playwright": "^1.50.1",
+    "yarn": "^1.22.22"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.1",
+    "@types/node": "^22.13.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}
