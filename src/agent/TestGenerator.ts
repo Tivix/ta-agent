@@ -35,7 +35,7 @@ class TestGenerator {
       const testCase = this.generateTestCode(className, pageUrl, elements);
 
       // Ensure the directory exists
-      const dir = path.join(__dirname, '..', 'tests');
+      const dir = path.join(__dirname, '/', 'tests');
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }

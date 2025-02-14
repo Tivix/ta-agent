@@ -6,7 +6,7 @@ import { TestResult } from './types/interfaces';
 // Run Playwright tests
 const runTests = (): Promise<TestResult[]> => {
   return new Promise((resolve, reject) => {
-    exec('npx playwright test --reporter=json', (error, stdout, stderr) => {
+    exec('yarn playwright test --reporter=json', {maxBuffer: 1024 * 7906}, (error, stdout, stderr) => {
       if (error) {
         console.error('Error running tests:', stderr);
         reject(error);

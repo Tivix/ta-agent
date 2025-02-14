@@ -8,7 +8,7 @@ class SmartCrawler {
   public elementInventory = new Map<string, ElementData[]>();
 
   async initialize() {
-    this.browser = await chromium.launch();
+    this.browser = await chromium.launch({ headless: true }); // Run in non-headless mode for debugging
     this.page = await this.browser.newPage();
   }
 
@@ -17,24 +17,33 @@ class SmartCrawler {
     if (depth === 0 || this.visitedUrls.has(startUrl)) return;
 
     this.visitedUrls.add(startUrl);
-    await this.page.goto(startUrl);
 
-    // Discover interactive elements
-    const buttons = await this.findElements('button');
-    const inputs = await this.findElements('input,textarea');
-    const links = await this.findElements('a');
+    try {
+      console.log(`Navigating to ${startUrl}...`);
+      await this.page.goto(startUrl, { waitUntil: 'domcontentloaded', timeout: 60000 }); // Wait for DOM content to load
+      console.log(`Successfully loaded ${startUrl}.`);
 
-    // Resolve all promises for element data
-    const buttonData = await Promise.all(buttons.map(e => this.createElementData(e, 'button')));
-    const inputData = await Promise.all(inputs.map(e => this.createElementData(e, 'input')));
-    const linkData = await Promise.all(links.map(e => this.createElementData(e, 'link')));
+      // Discover interactive elements
+      const buttons = await this.findElements('button');
+      const inputs = await this.findElements('input,textarea');
+      const links = await this.findElements('a');
 
-    this.elementInventory.set(startUrl, [...buttonData, ...inputData, ...linkData]);
+      // Resolve all promises for element data
+      const buttonData = await Promise.all(buttons.map(e => this.createElementData(e, 'button')));
+      const inputData = await Promise.all(inputs.map(e => this.createElementData(e, 'input')));
+      const linkData = await Promise.all(links.map(e => this.createElementData(e, 'link')));
 
-    // Recursive crawling
-    const pageLinks = await this.page.$$eval('a', as => as.map(a => a.href));
-    for (const link of pageLinks) {
-      await this.crawl(link, depth - 1);
+      this.elementInventory.set(startUrl, [...buttonData, ...inputData, ...linkData]);
+
+      // Recursive crawling
+      const pageLinks = await this.page.$$eval('a', as => as.map(a => a.href));
+      for (const link of pageLinks) {
+        if (link && !this.visitedUrls.has(link)) {
+          await this.crawl(link, depth - 1);
+        }
+      }
+    } catch (error) {
+      console.error(`Failed to crawl ${startUrl}:`, error);
     }
   }
 
